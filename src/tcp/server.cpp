@@ -1,5 +1,4 @@
 #include "tcp/server.h"
-
 #include "utils/inet.h"
 
 namespace simple_server {
@@ -13,7 +12,7 @@ namespace simple_server {
  * @return int 返回 sockfd
  */
 int startTcpServer(int port, char* ip, int backlog) {
-    int sockfd = socket(PF_INET, SOCK_STREAM, 0);
+    int sockfd = socket(PF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
     sockaddr_in addr = getInetAddr(AF_INET, port, ip);
     /* 服务器端使用 SO_REUSEADDR 重用 TIME_WAIT 状态端口 */
     int on = 1;

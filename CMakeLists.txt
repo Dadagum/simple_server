@@ -34,9 +34,13 @@ target_include_directories(test_simple_server
         ${PROJECT_SOURCE_DIR}/src/include
 ) 
 
-target_link_libraries(test_simple_server
+# link pthread
+set(CMAKE_THREAD_LIBS_INIT "-lpthread")
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+target_link_libraries(test_simple_server 
     PRIVATE
-        simple_server
+        Threads::Threads simple_server
 )
 
 target_include_directories(test_simple_client
