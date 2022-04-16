@@ -2,8 +2,10 @@
 #include <pthread.h>
 #include "tcp/server.h"
 
+/* 为何客户端 ctrl D 和 ctrl C 的效果不同呢？ */
 void* worker(void* arg) {
     pthread_detach(pthread_self());
+    printf("in worker\n");
     const int BUF_SIZE = 1024;
     char buf[BUF_SIZE];
     int cli_fd = *((int*)arg);
@@ -13,7 +15,7 @@ void* worker(void* arg) {
         printf("server get: %s", buf); // 直接打印接收的字节
         write(cli_fd, buf, cnt); // 重新告诉客户端接收的字节
     }
-    printf("closing connection with fd = %d \n", cli_fd);
+    printf("thread[%lu] is closing connection with fd = %d \n", (pthread_t)pthread_self(), cli_fd);
     close(cli_fd);
     return NULL;
 }
@@ -55,6 +57,7 @@ void simpleTcpEchoServer() {
 }
 
 void epollEchoServer() {
+    setvbuf(stdout, NULL, _IONBF, 0);
     int ret;
     const int MAX_EVENTS = 1024;
     epoll_event evlist[MAX_EVENTS];
@@ -77,8 +80,8 @@ void epollEchoServer() {
         int ready = epoll_wait(epfd, evlist, MAX_EVENTS, -1); // block until ready
         // 检查就绪事件
         for (int i = 0; i < ready; ++i) {
-            // 读就绪
             if (evlist[i].events & EPOLLIN) {
+                // 读就绪
                 if (evlist[i].data.fd == sockfd) {
                     // accept 事件
                     cli_fd = accept(sockfd, (sockaddr*)&cli_addr, &cli_addr_sz);
@@ -88,8 +91,9 @@ void epollEchoServer() {
                     //     simple_server::errExit("%s:%d - fcntl() fails!\n", __FILE__, __LINE__);
                     // }
                     // fcntl(cli_fd, F_SETFL, flag | O_NONBLOCK);
-                    // 监听 fd 的可读事件
-                    ev.events = EPOLLIN;  
+                    // 监听 fd 的可读事件, 采用边缘触发模式
+                   // ev.events = EPOLLIN;  
+                    ev.events = EPOLLIN | EPOLLET;  
                     ev.data.fd = cli_fd;
                     if ((ret = epoll_ctl(epfd, EPOLL_CTL_ADD, cli_fd, &ev)) < 0) {
                         simple_server::errExit("%s:%d - epoll_ctl() fails with ret = %d!\n", __FILE__, __LINE__, ret);
@@ -98,10 +102,13 @@ void epollEchoServer() {
                 } else {
                     // 客户端读事件
                     // 业务处理：直接 echo
+                    printf("get client data with event = %u\n", evlist[i].events);
                     cli_fd = evlist[i].data.fd;
                     pthread_t th;
                     pthread_create(&th, NULL, worker, &cli_fd);
                 }
+            } else {
+                printf("other events.\n");
             }
         }
     }
